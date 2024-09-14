@@ -1,0 +1,78 @@
+version: "3.9"
+#  docker compose up;
+# - ds wp
+
+networks:
+  wp-ms:
+
+services:
+  wp_mysql:
+    image: mysql:8.0
+    container_name: mysql8_ms
+    restart: always
+    ports:
+      - '3306:3306'
+    volumes:
+      - ./.srv/database:/var/lib/mysql
+    # необхідний набор змінних
+    environment:
+      MYSQL_ROOT_PASSWORD: wordpress
+      MYSQL_DATABASE: wp-ms
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+    networks:
+      - wp-ms
+
+  # http://localhost:8000/
+  wordpress:
+    image: wordpress:latest
+    container_name: wp-latest_ms
+    depends_on:
+      - wp_mysql
+    links:
+      - wp_mysql
+    restart: always
+    ports:
+      - '8000:80'
+    # необхідний набор змінних
+    environment:
+      WORDPRESS_DB_HOST: wp_mysql:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wp-ms
+      WORDPRESS_DEBUG: 1
+    volumes:
+      # цей volume для того, щоб wordpress з цієї папки брати і ставити в інтерпретатор, на сам сервер
+      # тепер можемо вносити зміни в теми або плагіни і вони будуть доступні в контейнері без його перезапуску
+      - ./.srv/wordpress:/var/www/html
+      # монтуємо теми в контейнер
+      - ./themes/mytheme/:/var/www/html/wp-content/themes/mytheme
+#      - ./themes/woodmart/:/var/www/html/wp-content/themes/woodmart
+      # монтуємо плагіни в контейнер
+      - ./plugin/:/var/www/html/wp-content/plugins/my-core
+      # монтуємо конфіги для php в контейнер
+      - ./.srv/custom.ini:/usr/local/etc/php/conf.d/custom.ini
+      # копіюємо та монтуємо конфіги для wordpress в контейнер, для можливості їх змінювати
+      - ./.volumes/wp-config.php:/var/www/html/wp-config.php
+      # копіюємо та монтуємо .htaccess в контейнер, для можливості їх змінювати
+      - ./.volumes/.htaccess:/var/www/html/.htaccess
+    networks:
+      - wp-ms
+
+  # http://localhost:8282/
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin_ms
+    depends_on:
+      - wp_mysql
+    links:
+      - wp_mysql
+    ports:
+      - '8181:80'
+    environment:
+      MYSQL_USERNAME: wordpress
+      MYSQL_ROOT_PASSWORD: wordpress
+      PMA_HOST: wp_mysql
+    restart: always
+    networks:
+      - wp-ms
